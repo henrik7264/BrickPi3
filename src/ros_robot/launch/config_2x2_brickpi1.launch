@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<launch>
+    <!-- Configuration for Slamtec rplidar a2 -->
+    <param name="serial_port" type="string" value="/dev/ttyUSB0"/>
+    <param name="serial_baudrate" type="int" value="115200"/>
+    <param name="frame_id" type="string" value="laser_frame"/>
+    <param name="inverted" type="bool" value="false"/>
+    <param name="angle_compensate" type="bool" value="true"/>
+
+    <!-- Base parameters for the nxt robot, used by nxt_base_controller -->
+    <group ns="brickpi3">
+        <param name="r_wheel_joint" type="string" value="r_wheel_joint"/>
+        <param name="l_wheel_joint" type="string" value="l_wheel_joint"/>
+        <param name="wheel_radius" type="double" value="0.028" /> <!-- diameter of wheel / 2 -->
+        <param name="wheel_basis" type="double" value="0.0625" /> <!-- length between wheels / 2 -->
+        <param name="gearing" type="double" value="0.3333" />
+    </group>
+
+    <!-- Start my robot. Does actually not do anything at the moment-->
+    <node pkg="ros_robot" name="ros_robot" type="ros_robot" output="screen" respawn="true"/>
+
+    <node pkg="brickpi3" name="brickpi3" type="brickpi3" output="screen" respawn="false">
+        <rosparam command="load" file="$(find ros_robot)/config_2x2/ros_robot.yaml" />
+    </node>
+
+    <!-- Start node joint_state_publisher: read joint_state for each motor and publish an aggregate joint_states for all motors -->
+    <!-- Subscribe topic: /joint_state-->
+    <!-- Publisher topic: /joint_states-->
+    <node pkg="brickpi3" name="brickpi3_joint_states_publisher"  type="brickpi3_joint_states_publisher" output="screen" />
+
+    <!-- Start node nxt_base_controller: publish effect to motors from cmd_vel and joint_states-->
+    <!-- Subscribe topic: JointStare:/joint_states, Twist/cmd_vel /-->
+    <!-- Publisher topic: JointCommand:/joint_command-->
+    <node pkg="brickpi3" name="brickpi3_base_controller" type="brickpi3_base_controller" output="screen"/>
+
+    <!-- Start -->
+    <node pkg="brickpi3" name="brickpi3_odom_publisher" type="brickpi3_odom_publisher" output="screen"/>
+
+    <!-- Start -->
+    <!--node pkg="ros_robot_tf" name="ros_robot_tf_broadcaster" type="ros_robot_tf_broadcaster" output="screen" respawn="true"/-->
+
+    <!-- Start -->
+    <node pkg="robot_state_publisher" name="robot_state_publisher" type="robot_state_publisher">
+        <param name="publish_frequency" value="10.0"/>
+    </node>
+
+    <!-- Start Slamtec rplidar a2 -->
+    <node pkg="rplidar_ros" name="rplidarNode" type="rplidarNode" output="screen"/>
+</launch>

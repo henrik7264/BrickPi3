@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<launch>
+    <!-- Configuration file for rviz and robot model -->
+    <arg name="rvizconfig" default="$(find ros_robot)/rviz/ros_robot.rviz" />
+    <param name="robot_description" textfile="$(find ros_robot)/ros_robot.urdf"/>
+
+    <!-- Configuration for Slamtec rplidar a2 -->
+    <param name="serial_port" type="string" value="/dev/ttyUSB0"/>
+    <param name="serial_baudrate" type="int" value="115200"/>
+    <param name="frame_id" type="string" value="laser_frame"/>
+    <param name="inverted" type="bool" value="false"/>
+    <param name="angle_compensate" type="bool" value="true"/>
+
+    <!-- Base parameters for the nxt robot, used by nxt_base_controller -->
+    <group ns="base_parameters">
+        <param name="r_wheel_joint" type="string" value="r_wheel_joint"/>
+        <param name="l_wheel_joint" type="string" value="l_wheel_joint"/>
+        <param name="wheel_radius" type="double" value="0.0093" /> <!-- diameter of wheel / 2 / 3 (gearing is 1/3)-->
+        <param name="wheel_basis" type="double" value="0.06" /> <!-- length between wheels / 2 -->
+        <param name="vel_to_eff" type="double" value="0.5" /> <!-- used by nxt_base_controller to determine the effect of the motors -->
+    </group>
+
+    <!--node pkg="joystick" name="JoystickPublisher" type="joystickPublisher" output="screen" respawn="true"/-->
+
+    <!-- Start keyboard node. Will provide teleop via the keyboard. -->
+    <!-- Publisher topic: Twist:/cmd_vel -->
+    <node pkg="nxt_teleop" name="nxt_teleop" type="nxt_teleop_node" output="screen"/>
+
+    <!-- Start my robot. Does actually not do anything at the moment-->
+    <node pkg="ros_robot" name="ros_robot" type="ros_robot" output="screen" respawn="true"/>
+
+    <!-- Start NXT driver: starts and monitors the wheels, ultrasonic sensor and color sensor-->
+    <!-- Publisher topic: /ultrasonic_sensor, /color_sensor, /joint_state-->
+    <node pkg="nxt_ros" name="nxt_ros" type="nxt_ros.py" output="screen" respawn="true">
+        <rosparam command="load" file="$(find ros_robot)/ros_robot.yaml" />
+        <!--param name="host" value="00:16:53:1A:0B:F5"/-->
+    </node>
+
+    <!-- Start node joint_state_publisher: read joint_state for each motor and publish an aggregate joint_states for all motors -->
+    <!-- Subscribe topic: /joint_state-->
+    <!-- Publisher topic: /joint_states-->
+    <node pkg="nxt_ros" name="joint_state_publisher"  type="joint_states_aggregator.py" output="screen" />
+
+    <!-- Start node nxt_base_controller: publish effect to motors from cmd_vel and joint_states-->
+    <!-- Subscribe topic: JointStare:/joint_states, Twist/cmd_vel /-->
+    <!-- Publisher topic: JointCommand:/joint_command-->
+    <node pkg="nxt_controllers" name="nxt_base_controller" type="base_controller.py" output="screen"/>
+
+    <!-- Start -->
+    <node pkg="nxt_controllers" name="nxt_base_odometry" type="base_odometry.py" output="screen"/>
+
+    <!-- Start -->
+    <node pkg="ros_robot_tf" name="ros_robot_tf_broadcaster" type="ros_robot_tf_broadcaster" output="screen" respawn="true"/>
+
+    <!-- Start -->
+    <node pkg="robot_state_publisher" name="robot_state_publisher" type="robot_state_publisher">
+        <param name="publish_frequency" value="20.0"/>
+    </node>
+
+    <!-- Start Slamtec rplidar a2 -->
+    <node pkg="rplidar_ros" name="rplidarNode" type="rplidarNode" output="screen"/>
+
+    <!-- Start Map Server using the map.yaml definition -->
+    <node name="map_server" pkg="map_server" type="map_server" args="$(find ros_robot)/map.yaml"/>
+
+    <param name="ini_filename" value="$(find mrpt_rbpf_slam)/tutorial/grid_slam_demo_2.ini"/>
+    <param name="rawlog_filename" value="$(find ros_robot)/grid_slam.rawlog"/>
+    <env name="ROSCONSOLE_CONFIG_FILE" value="$(find mrpt_rbpf_slam)/config/rosconsole.config"/>
+
+    <node pkg="rviz" type="rviz" name="rviz_nav" output="screen" args="-d $(find mrpt_rbpf_slam)/rviz/rviz_conf.rviz"/>
+
+    <node pkg="mrpt_rbpf_slam" type="mrpt_rbpf_slam" name="mrpt_rbpf_slam" output="screen"/>
+</launch>
